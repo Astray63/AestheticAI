@@ -31,6 +31,10 @@ backend/__pycache__/
 backend/venv/
 backend/env/
 
+# Specific to this project - prevent large Python environments
+venv/
+*/venv/
+
 # Database
 *.db
 *.sqlite
