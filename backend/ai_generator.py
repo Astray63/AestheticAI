@@ -8,9 +8,12 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import time
 import os
+import io
 
 # Check if we're in test mode
 TESTING_MODE = os.getenv("TESTING_MODE", "false").lower() == "true"
+USE_GPU = os.getenv("USE_GPU", "false").lower() == "true"
+
 
 # Mock classes for testing
 class MockControlNetModel:
@@ -18,27 +21,32 @@ class MockControlNetModel:
     def from_pretrained(cls, *args, **kwargs):
         return cls()
 
+
 class MockStableDiffusionControlNetPipeline:
     def __init__(self, *args, **kwargs):
         pass
-    
+
     @classmethod
     def from_pretrained(cls, *args, **kwargs):
         return cls()
-    
+
     def to(self, device):
         return self
-    
+
     def enable_xformers_memory_efficient_attention(self):
         pass
-    
+
     def __call__(self, *args, **kwargs):
         # Return a mock PIL Image
-        return type('MockResult', (), {'images': [Image.new('RGB', (512, 512), color='red')]})()
+        return type(
+            "MockResult", (), {"images": [Image.new("RGB", (512, 512), color="red")]}
+        )()
+
 
 class MockCannyDetector:
     def __call__(self, image):
-        return Image.new('L', image.size, color=128)
+        return Image.new("L", image.size, color=128)
+
 
 # Use mocks in testing mode, real imports otherwise
 if TESTING_MODE:
@@ -289,16 +297,17 @@ def preprocess_image(image) -> Image.Image:
     # Handle bytes input
     if isinstance(image, bytes):
         import io
+
         image = Image.open(io.BytesIO(image))
-    
+
     # Ensure we have a PIL Image
     if not isinstance(image, Image.Image):
         raise ValueError("Input must be a PIL Image or bytes")
-    
+
     # Convert to RGB if needed
-    if image.mode != 'RGB':
-        image = image.convert('RGB')
-    
+    if image.mode != "RGB":
+        image = image.convert("RGB")
+
     # Redimensionner à 512x512 pour Stable Diffusion
     image = image.resize((512, 512), Image.Resampling.LANCZOS)
     return image
@@ -320,6 +329,7 @@ def validate_image_format(image_path: str) -> bool:
         if isinstance(image_path, bytes):
             # Handle bytes input by creating a temporary image
             import io
+
             with Image.open(io.BytesIO(image_path)) as img:
                 return img.format in ["JPEG", "PNG", "WEBP"]
         else:
@@ -329,13 +339,124 @@ def validate_image_format(image_path: str) -> bool:
         return False
 
 
-def mock_ai_processing(image: Image.Image, intervention_type: str, dose: float) -> Image.Image:
+def mock_ai_processing(
+    image: Image.Image, intervention_type: str, dose: float
+) -> Image.Image:
     """Traitement IA mock pour les tests"""
     return ai_generator._mock_processing(image, intervention_type, dose)
 
 
 async def process_simulation(
-    simulation_id: int, image_path: str, intervention_type: str, dose: float, parameters: dict = None
+    simulation_id: int,
+    image_path: str,
+    intervention_type: str,
+    dose: float,
+    parameters: dict = None,
 ) -> Tuple[bool, str, Optional[str]]:
     """Traiter une simulation"""
-    return await ai_generator.process_simulation(simulation_id, image_path, intervention_type, dose, parameters)
+    return await ai_generator.process_simulation(
+        simulation_id, image_path, intervention_type, dose, parameters
+    )
+
+
+def validate_image_format(image_data: bytes) -> bool:
+    """Valider le format d'une image"""
+    try:
+        image = Image.open(io.BytesIO(image_data))
+        # Vérifier que c'est une image valide
+        image.verify()
+        return True
+    except Exception:
+        return False
+
+
+def preprocess_image(image_data: bytes) -> Image.Image:
+    """Préprocesser une image pour l'IA"""
+    try:
+        image = Image.open(io.BytesIO(image_data)).convert("RGB")
+        # Redimensionner à 512x512 pour ControlNet
+        image = image.resize((512, 512), Image.Resampling.LANCZOS)
+        return image
+    except Exception as e:
+        raise ValueError(f"Erreur lors du preprocessing de l'image: {e}")
+
+
+def apply_intervention(
+    image: Image.Image,
+    intervention_type: str,
+    dose: float,
+    **kwargs
+) -> Image.Image:
+    """Appliquer une intervention esthétique"""
+    from config import INTERVENTION_TYPES
+    
+    # Validation du type d'intervention
+    if intervention_type not in INTERVENTION_TYPES:
+        raise ValueError(f"Unsupported intervention type: {intervention_type}")
+    
+    # Validation de la dose
+    intervention_config = INTERVENTION_TYPES[intervention_type]
+    if dose <= 0 or dose < intervention_config["min_dose"] or dose > intervention_config["max_dose"]:
+        raise ValueError(f"Invalid dose: {dose}. Must be between {intervention_config['min_dose']} and {intervention_config['max_dose']}")
+    
+    # En mode GPU avec pipeline fournie dans les kwargs
+    pipeline = kwargs.get('pipeline')
+    controlnet = kwargs.get('controlnet')
+    
+    if pipeline is not None and controlnet is not None and USE_GPU and not TESTING_MODE:
+        # Utiliser le pipeline réel
+        try:
+            canny_detector = CannyDetector()
+            control_image = canny_detector(image)
+            prompt = f"beautiful face with enhanced {intervention_type}, dose {dose}"
+            
+            result = pipeline(
+                prompt=prompt,
+                image=control_image,
+                num_inference_steps=20,
+                guidance_scale=7.5
+            )
+            return result.images[0]
+        except Exception as e:
+            # Fallback to mock if real processing fails
+            return mock_ai_processing(image, intervention_type, dose)
+    else:
+        # Mode mock
+        return mock_ai_processing(image, intervention_type, dose)
+
+
+def mock_ai_processing(image_data, intervention_type: str, dose: float) -> Image.Image:
+    """Traitement IA mock pour les tests"""
+    if isinstance(image_data, bytes):
+        image = Image.open(io.BytesIO(image_data)).convert("RGB")
+    else:
+        image = image_data
+    
+    # Modifier légèrement l'image selon l'intervention
+    if intervention_type == "lips":
+        # Faire une modification subtile pour simuler une augmentation des lèvres
+        pixels = np.array(image)
+        pixels[:, :, 0] = np.clip(pixels[:, :, 0] + int(dose * 10), 0, 255)  # Plus de rouge
+        image = Image.fromarray(pixels)
+    
+    # Retourner l'image PIL directement
+    return image
+
+
+def load_ai_models():
+    """Charger les modèles IA"""
+    if TESTING_MODE or not USE_GPU:
+        return MockStableDiffusionControlNetPipeline(), MockControlNetModel()
+    
+    # TODO: Implémenter le chargement des vrais modèles
+    return None, None
+
+
+def save_result_image(image: Image.Image, filename: str) -> str:
+    """Sauvegarder l'image résultat et retourner le chemin"""
+    from config import UPLOAD_DIR
+    import os
+    
+    filepath = os.path.join(UPLOAD_DIR, filename)
+    image.save(filepath, "JPEG")
+    return f"/uploads/{filename}"

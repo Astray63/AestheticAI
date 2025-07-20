@@ -1,6 +1,7 @@
 """
 Mock version of ai_generator for testing
 """
+
 import torch
 import cv2
 import numpy as np
@@ -15,24 +16,28 @@ from config import DEVICE, MODEL_NAME, CONTROLNET_MODEL, INFERENCE_STEPS, GUIDAN
 
 logger = logging.getLogger(__name__)
 
+
 # Mock classes for testing
 class MockControlNetModel:
     pass
 
+
 class MockStableDiffusionControlNetPipeline:
     def __init__(self, *args, **kwargs):
         pass
-    
+
     def to(self, device):
         return self
-    
+
     def __call__(self, *args, **kwargs):
         # Return a mock PIL Image
-        return [Image.new('RGB', (512, 512), color='red')]
+        return [Image.new("RGB", (512, 512), color="red")]
+
 
 class MockCannyDetector:
     def __call__(self, image):
-        return Image.new('L', image.size, color=128)
+        return Image.new("L", image.size, color=128)
+
 
 # Use mocks instead of real imports during testing
 try:
@@ -67,7 +72,9 @@ class AestheticAIGenerator:
             logger.info("Chargement des modèles IA...")
 
             # Charger ControlNet
-            controlnet = ControlNetModel.from_pretrained(self.controlnet_model, torch_dtype=torch.float16)
+            controlnet = ControlNetModel.from_pretrained(
+                self.controlnet_model, torch_dtype=torch.float16
+            )
 
             # Charger le pipeline principal
             self.pipeline = StableDiffusionControlNetPipeline.from_pretrained(
@@ -144,7 +151,9 @@ class AestheticAIGenerator:
         """Charger une image de manière asynchrone"""
         loop = asyncio.get_event_loop()
         try:
-            image = await loop.run_in_executor(self.executor, self._load_image_sync, image_path)
+            image = await loop.run_in_executor(
+                self.executor, self._load_image_sync, image_path
+            )
             return image
         except Exception as e:
             logger.error(f"Erreur chargement image: {e}")
@@ -158,7 +167,9 @@ class AestheticAIGenerator:
     async def _preprocess_image_async(self, image: Image.Image) -> Image.Image:
         """Préprocesser l'image de manière asynchrone"""
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(self.executor, self._preprocess_image_sync, image)
+        return await loop.run_in_executor(
+            self.executor, self._preprocess_image_sync, image
+        )
 
     def _preprocess_image_sync(self, image: Image.Image) -> Image.Image:
         """Préprocesser l'image (synchrone)"""
@@ -173,7 +184,12 @@ class AestheticAIGenerator:
         loop = asyncio.get_event_loop()
         try:
             result = await loop.run_in_executor(
-                self.executor, self._apply_intervention_sync, image, intervention_type, dose, parameters
+                self.executor,
+                self._apply_intervention_sync,
+                image,
+                intervention_type,
+                dose,
+                parameters,
             )
             return result
         except Exception as e:
@@ -210,7 +226,9 @@ class AestheticAIGenerator:
             # Fallback vers traitement mock
             return self._mock_processing(image, intervention_type, dose)
 
-    def _build_prompt(self, intervention_type: str, dose: float, parameters: dict) -> str:
+    def _build_prompt(
+        self, intervention_type: str, dose: float, parameters: dict
+    ) -> str:
         """Construire le prompt pour la génération"""
         base_prompts = {
             "lips": f"beautiful lips enhancement, natural lip filler {dose}ml, professional aesthetic result",
@@ -219,7 +237,9 @@ class AestheticAIGenerator:
             "nose": f"refined nose shape, non-surgical nose job, natural enhancement",
         }
 
-        prompt = base_prompts.get(intervention_type, "professional aesthetic enhancement")
+        prompt = base_prompts.get(
+            intervention_type, "professional aesthetic enhancement"
+        )
 
         # Ajouter des paramètres spécifiques
         if parameters.get("natural", True):
@@ -229,7 +249,9 @@ class AestheticAIGenerator:
 
         return prompt
 
-    def _mock_processing(self, image: Image.Image, intervention_type: str, dose: float) -> Image.Image:
+    def _mock_processing(
+        self, image: Image.Image, intervention_type: str, dose: float
+    ) -> Image.Image:
         """Traitement mock en cas d'échec du pipeline principal"""
         logger.info("Utilisation du traitement mock")
 
@@ -240,13 +262,17 @@ class AestheticAIGenerator:
         if intervention_type == "lips":
             # Enhancer légèrement la zone des lèvres (approximative)
             lips_region = img_array[300:400, 200:300]  # Zone approximative
-            lips_region = cv2.addWeighted(lips_region, 0.8, lips_region, 0.2, int(dose * 5))
+            lips_region = cv2.addWeighted(
+                lips_region, 0.8, lips_region, 0.2, int(dose * 5)
+            )
             img_array[300:400, 200:300] = lips_region
 
         elif intervention_type == "cheeks":
             # Accentuer légèrement les pommettes
             cheek_region = img_array[200:350, 100:200]
-            cheek_region = cv2.addWeighted(cheek_region, 0.9, cheek_region, 0.1, int(dose * 3))
+            cheek_region = cv2.addWeighted(
+                cheek_region, 0.9, cheek_region, 0.1, int(dose * 3)
+            )
             img_array[200:350, 100:200] = cheek_region
 
         # Ajouter un léger flou pour simuler le lissage
@@ -257,7 +283,9 @@ class AestheticAIGenerator:
     async def _save_result_async(self, image: Image.Image, simulation_id: int) -> str:
         """Sauvegarder le résultat de manière asynchrone"""
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(self.executor, self._save_result_sync, image, simulation_id)
+        return await loop.run_in_executor(
+            self.executor, self._save_result_sync, image, simulation_id
+        )
 
     def _save_result_sync(self, image: Image.Image, simulation_id: int) -> str:
         """Sauvegarder le résultat (synchrone)"""
@@ -266,7 +294,9 @@ class AestheticAIGenerator:
         # Créer le dossier de résultats s'il n'existe pas
         os.makedirs("uploads/results", exist_ok=True)
 
-        result_path = f"uploads/results/simulation_{simulation_id}_{int(time.time())}.jpg"
+        result_path = (
+            f"uploads/results/simulation_{simulation_id}_{int(time.time())}.jpg"
+        )
         image.save(result_path, "JPEG", quality=95)
 
         return result_path
@@ -293,7 +323,9 @@ def apply_intervention(
     """Appliquer une intervention"""
     if parameters is None:
         parameters = {}
-    return ai_generator._apply_intervention_sync(image, intervention_type, dose, parameters)
+    return ai_generator._apply_intervention_sync(
+        image, intervention_type, dose, parameters
+    )
 
 
 def validate_image_format(image_path: str) -> bool:
@@ -305,13 +337,21 @@ def validate_image_format(image_path: str) -> bool:
         return False
 
 
-def mock_ai_processing(image: Image.Image, intervention_type: str, dose: float) -> Image.Image:
+def mock_ai_processing(
+    image: Image.Image, intervention_type: str, dose: float
+) -> Image.Image:
     """Traitement IA mock pour les tests"""
     return ai_generator._mock_processing(image, intervention_type, dose)
 
 
 async def process_simulation(
-    simulation_id: int, image_path: str, intervention_type: str, dose: float, parameters: dict = None
+    simulation_id: int,
+    image_path: str,
+    intervention_type: str,
+    dose: float,
+    parameters: dict = None,
 ) -> Tuple[bool, str, Optional[str]]:
     """Traiter une simulation"""
-    return await ai_generator.process_simulation(simulation_id, image_path, intervention_type, dose, parameters)
+    return await ai_generator.process_simulation(
+        simulation_id, image_path, intervention_type, dose, parameters
+    )

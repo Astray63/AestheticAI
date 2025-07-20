@@ -16,6 +16,7 @@ from schemas import *
 from config import INTERVENTION_TYPES, UPLOAD_DIR
 from ai_generator import ai_generator
 from auth import create_access_token, verify_token, hash_pin, verify_pin
+from subscription_api import router as subscription_router
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
@@ -38,6 +39,9 @@ app.add_middleware(
 
 # Servir les fichiers uploadés
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
+# Inclure les routers
+app.include_router(subscription_router)
 
 # Sécurité
 security = HTTPBearer()
@@ -74,6 +78,17 @@ async def health_check():
         "status": "healthy",
         "timestamp": datetime.utcnow(),
         "ai_ready": ai_generator.pipeline is not None,
+    }
+
+
+@app.get("/version")
+async def get_version():
+    """Obtenir la version de l'API"""
+    return {
+        "version": "1.0.0",
+        "api_name": "AestheticAI",
+        "description": "API pour simulations d'interventions esthétiques",
+        "python_version": "3.11+",
     }
 
 

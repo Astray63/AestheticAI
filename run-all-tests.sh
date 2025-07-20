@@ -104,8 +104,9 @@ run_backend_tests() {
     cd backend
     
     # Vérifier l'environnement virtuel
-    if [ ! -d "../venv" ]; then
-        print_status "Création de l'environnement virtuel..."
+    if [ ! -f "../venv/bin/activate" ]; then
+        print_status "Création ou recréation de l'environnement virtuel..."
+        rm -rf ../venv
         python3 -m venv ../venv
     fi
     
@@ -139,6 +140,7 @@ run_backend_tests() {
     
     # Tests unitaires
     print_status "Exécution des tests unitaires backend..."
+    export PYTHONPATH=$PYTHONPATH:$(pwd)
     export USE_GPU=false
     export SECRET_KEY=test-secret-key
     export DATABASE_URL=sqlite:///./test.db

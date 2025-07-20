@@ -6,19 +6,32 @@ from fastapi.testclient import TestClient
 from main import app
 import tempfile
 import os
+from unittest.mock import Mock, patch
 
 client = TestClient(app)
 
 
-class TestPerformance:
+@pytest.fixture
+def auth_token():
+    """Obtenir un token d'authentification pour les tests"""
+    # Mock de l'utilisateur en base de données
+    with patch("main.get_db") as mock_get_db:
+        mock_db = Mock()
+        mock_user = Mock()
+        mock_user.username = "test_doctor"
+        mock_user.hashed_pin = "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/lewdBNb1/5QQKVa.S"
+        mock_user.specialty = "Médecine Esthétique"
+        mock_db.query().filter().first.return_value = mock_user
+        mock_get_db.return_value = mock_db
+        
+        with patch("backend.auth.verify_pin", return_value=True):
+            response = client.post(
+                "/auth/login", json={"username": "test_doctor", "pin": "123456"}
+            )
+            return response.json()["access_token"]
 
-    @pytest.fixture
-    def auth_token(self):
-        """Obtenir un token d'authentification pour les tests"""
-        response = client.post(
-            "/auth/login", json={"username": "test_doctor", "pin": "123456"}
-        )
-        return response.json()["access_token"]
+
+class TestPerformance:
 
     def test_api_response_time(self, auth_token):
         """Test des temps de réponse API"""
@@ -225,7 +238,8 @@ class TestSecurity:
 
         for headers in bypass_attempts:
             response = client.get("/patients", headers=headers)
-            assert response.status_code == 401
+            # FastAPI retourne 403 pour l'absence d'autorisation
+            assert response.status_code in [401, 403]
 
     def test_rate_limiting_simulation(self, auth_token):
         """Test de simulation de limitation de taux"""
