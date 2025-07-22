@@ -141,7 +141,10 @@ def get_current_user(
     db: Session = Depends(get_db),
 ):
     """Obtenir l'utilisateur connecté"""
-    username = verify_token(credentials.credentials)
+    payload = verify_token(credentials.credentials)
+    username = payload.get("sub")
+    if username is None:
+        raise HTTPException(status_code=401, detail="Token invalide")
     user = db.query(User).filter(User.username == username).first()
     if not user:
         raise HTTPException(status_code=401, detail="Utilisateur non trouvé")

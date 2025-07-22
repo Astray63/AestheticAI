@@ -3,14 +3,24 @@
   "version": "1.0.0",
   "description": "Application de médecine esthétique avec simulation IA",
   "scripts": {
+    "docker:dev": "./start.sh dev",
+    "docker:prod": "./start.sh prod",
+    "docker:stop": "./start.sh stop",
+    "docker:logs": "./start.sh logs",
+    "docker:clean": "./start.sh clean",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "cd backend && bash -c 'source ../venv/bin/activate && python run.py'",
     "dev:frontend": "cd frontend && npm start",
     "install:all": "npm install && cd frontend && npm install && cd ../backend && pip install -r requirements.txt",
     "build": "cd frontend && npm run build",
+    "build:docker": "docker-compose build",
     "test": "concurrently \"cd backend && pytest\" \"cd frontend && npm test -- --watchAll=false\"",
+    "test:docker": "docker-compose -f docker-compose.dev.yml run --rm backend pytest && docker-compose -f docker-compose.dev.yml run --rm frontend npm test -- --watchAll=false",
+    "test:coverage": "cd backend && pytest --cov=. --cov-report=html && cd ../frontend && npm test -- --coverage --watchAll=false",
+    "cleanup": "./cleanup.sh",
+    "health": "curl -f http://localhost:8000/health && curl -f http://localhost:3000",
     "setup": "npm run install:all && cd backend && cp .env.example .env",
-    "start": "npm run dev"
+    "start": "npm run docker:dev"
   },
   "repository": {
     "type": "git",

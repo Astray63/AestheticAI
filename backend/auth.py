@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-import jwt
+import jwt  # PyJWT
 from passlib.context import CryptContext
 from fastapi import HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.orm import Session
 
 from config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 
@@ -59,3 +60,27 @@ def get_current_user_from_token(token: str, db=None) -> str:
     """Obtenir l'utilisateur actuel à partir d'un token (pour les tests)"""
     payload = verify_token(token)
     return payload.get("sub")
+
+
+def get_current_user_object(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+):
+    """Obtenir l'objet User complet à partir du token"""
+    from database import User, get_db  # Import local pour éviter les dépendances circulaires
+    from sqlalchemy.orm import Session
+    
+    # Obtenir la session DB
+    db_gen = get_db()
+    db = next(db_gen)
+    
+    try:
+        payload = verify_token(credentials.credentials)
+        username = payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=401, detail="Token invalide")
+        user = db.query(User).filter(User.username == username).first()
+        if not user:
+            raise HTTPException(status_code=401, detail="Utilisateur non trouvé")
+        return user
+    finally:
+        db.close()

@@ -1,4 +1,19 @@
-# Dependencies
+# 🌟 AestheticAI - .gitignore optimisé
+
+# ===========================================
+# 📂 Environnements et Configuration
+# ===========================================
+.env
+.env.local
+.env.production
+*.env
+venv/
+env/
+ENV/
+
+# ===========================================
+# 📦 Dependencies
+# ===========================================
 node_modules/
 */node_modules/
 

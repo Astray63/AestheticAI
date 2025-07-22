@@ -39,10 +39,26 @@ AestheticAI est la première plateforme SaaS dédiée aux professionnels de la m
 
 ## � Installation
 
+> 🚀 **Démarrage rapide** : Consultez [QUICKSTART.md](QUICKSTART.md) pour un démarrage en 2 minutes avec Docker !
+
 ### Prérequis
 - Python 3.11+
 - Node.js 16+
-- npm ou yarn
+- Docker & Docker Compose (recommandé)
+
+### 🐳 Démarrage avec Docker (Recommandé)
+```bash
+git clone https://github.com/votre-repo/aesthetic-ai.git
+cd aesthetic-ai
+npm run docker:dev
+```
+
+Accès immédiat :
+- Frontend : http://localhost:3000
+- Backend API : http://localhost:8000
+- Documentation API : http://localhost:8000/docs
+
+### 🛠️ Démarrage manuel (développement)
 
 ### 1. Cloner le repository
 ```bash
@@ -118,46 +134,61 @@ L'application sera accessible sur :
 ### Structure du Projet
 ```
 App-Medical/
-├── backend/                 # API FastAPI
-│   ├── main.py             # Point d'entrée API
-│   ├── auth.py             # Authentification JWT
-│   ├── database.py         # Configuration SQLAlchemy
-│   ├── schemas.py          # Modèles Pydantic
-│   ├── subscription_models.py  # Modèles abonnements
-│   ├── subscription_api.py     # API abonnements
-│   └── ai_generator.py     # Générateur IA
-├── frontend/               # Application React
+├── backend/                 # 🐍 API FastAPI
+│   ├── app/                # 🏗️ Architecture modulaire
+│   │   ├── core/          # ⚙️ Configuration & DB
+│   │   ├── models/        # 📊 Modèles SQLAlchemy
+│   │   ├── schemas/       # 📋 Schémas Pydantic
+│   │   ├── services/      # 🔧 Logique métier
+│   │   ├── api/           # 🚀 Endpoints FastAPI
+│   │   └── utils/         # 🛠️ Utilitaires
+│   ├── tests/             # 🧪 Tests backend
+│   ├── Dockerfile         # 🐳 Image production
+│   └── requirements.txt   # 📦 Dépendances Python
+├── frontend/               # ⚛️ Application React
 │   ├── src/
-│   │   ├── components/     # Composants React
-│   │   ├── AuthContext.tsx # Context authentification
-│   │   ├── api.ts         # Client API
-│   │   └── types.ts       # Types TypeScript
-│   └── public/
-└── tests/                 # Tests automatisés
+│   │   ├── components/    # 🧩 Composants React
+│   │   ├── services/      # 🌐 API clients
+│   │   ├── hooks/         # 🪝 Hooks personnalisés
+│   │   └── types.ts       # 📝 Types TypeScript
+│   ├── cypress/           # 🧪 Tests E2E
+│   └── Dockerfile         # 🐳 Image production
+├── docker/                # 🐳 Configuration Docker
+│   └── nginx/             # 🔀 Reverse proxy
+├── docker-compose.yml     # 🏭 Orchestration production
+├── docker-compose.dev.yml # 🛠️ Orchestration développement
+└── start.sh              # 🚀 Script de démarrage
 ```
 
 ### Scripts NPM Disponibles
 
 ```bash
-# Installation complète
-npm run install:all
+# 🚀 Démarrage rapide avec Docker
+npm run docker:dev          # Démarre tout avec Docker (dev)
+npm run docker:prod         # Démarre tout avec Docker (prod)
+npm run docker:stop         # Arrête tous les containers
 
-# Développement
-npm run dev              # Démarre frontend + backend
-npm run dev:frontend     # Frontend seul (port 3000)
-npm run dev:backend      # Backend seul (port 8000)
+# 🛠️ Développement local (sans Docker)
+npm run dev                 # Frontend + Backend local
+npm run dev:frontend        # Frontend seul (port 3000)
+npm run dev:backend         # Backend seul (port 8000)
 
-# Tests
-npm run test            # Tests frontend (Jest)
-npm run test:backend    # Tests backend (pytest)
-npm run test:e2e        # Tests E2E (Cypress)
-npm run test:all        # Tous les tests
-npm run test:coverage   # Coverage frontend
-npm run test:coverage:backend  # Coverage backend
+# 📦 Installation et Build
+npm run install:all         # Installe toutes les dépendances
+npm run build               # Build production frontend
+npm run build:docker        # Build images Docker
 
-# Build & Déploiement
-npm run build           # Build production
-npm run preview         # Preview du build
+# 🧪 Tests
+npm run test                # Tests frontend (Jest)
+npm run test:backend        # Tests backend (pytest)
+npm run test:e2e            # Tests E2E (Cypress)
+npm run test:docker         # Tests dans containers
+npm run test:coverage       # Coverage complète
+
+# 🔧 Maintenance
+npm run cleanup             # Nettoie les caches et temporaires
+npm run logs                # Affiche les logs Docker
+npm run health              # Vérifie la santé des services
 ```
 
 ### Configuration Stripe
@@ -285,163 +316,13 @@ docker-compose logs -f
 ## 📄 Licence
 
 © 2024 AestheticAI. Tous droits réservés. 
-Logiciel propriétaire - Usage commercial uniquement avec licence.
-
----
-
-**🌟 AestheticAI - L'avenir de la médecine esthétique est là !**
-
-## 🔧 Configuration
-
-### Backend
-Modifier le fichier `.env` pour configurer :
-- `USE_GPU=true` : Activer le GPU pour l'IA (recommandé)
-- `SECRET_KEY` : Clé de chiffrement (à changer en production)
-- `DATABASE_URL` : URL de la base de données
-
-### Frontend
-Créer un fichier `.env.local` :
-```
-REACT_APP_API_URL=http://localhost:8000
-```
-
-## 👤 Utilisation
-
-### Première connexion
-1. Créer un compte professionnel (nom d'utilisateur + PIN 6 chiffres)
-2. Renseigner spécialité et numéro de licence
-
-### Workflow typique
-1. **Créer un patient** avec âge, genre, type de peau (données anonymisées)
-2. **Sélectionner l'intervention** et la dose
-3. **Prendre/uploader une photo** du patient
-4. **Lancer la simulation** (2 min max)
-5. **Visualiser le résultat** avant/après
-6. **Télécharger** ou présenter au patient
-
-## 🤖 IA et Modèles
-
-### Modèles utilisés
-- **Stable Diffusion v1.5** : Génération d'images de base
-- **ControlNet Canny** : Contrôle de la structure faciale
-- **Preprocessing** : Détection des contours avec OpenCV
-
-### Mode Mock (Développement)
-En l'absence de GPU, l'application fonctionne en mode "mock" :
-- Simule le temps de traitement (2s)
-- Retourne une version légèrement modifiée de l'image originale
-- Permet de tester l'interface sans matériel spécialisé
-
-### Production avec GPU
-Pour une utilisation réelle :
-1. Installer CUDA + PyTorch GPU
-2. Configurer `USE_GPU=true`
-3. Les modèles seront téléchargés automatiquement (~5GB)
-
-## 🔐 Sécurité et RGPD
-
-### Données patients
-- **Anonymisation** automatique avec UUID
-- **Chiffrement** des images uploadées
-- **Suppression** automatique après 30 jours
-- **Logs auditables** des accès
-
-### Authentification
-- **PIN à 6 chiffres** (bcrypt hashé)
-- **Tokens JWT** avec expiration
-- **Sessions sécurisées** HTTPS uniquement en production
-
-## 📊 API Documentation
-
-Une fois le backend démarré, la documentation interactive est disponible sur :
-- **Swagger UI** : `http://localhost:8000/docs`
-- **ReDoc** : `http://localhost:8000/redoc`
-
-### Endpoints principaux
-- `POST /auth/login` : Connexion
-- `POST /patients` : Créer un patient
-- `POST /simulations` : Lancer une simulation  
-- `GET /simulations/{id}` : Récupérer une simulation
-- `GET /images/{filename}` : Accéder aux images
-
-## 🧪 Tests et Qualité
-
-### Backend
-```bash
-cd backend
-pytest tests/ -v
-```
-
-### Frontend  
-```bash
-cd frontend
-npm test
-```
-
-### Linting
-```bash
-# Backend
-flake8 .
-black .
-
-# Frontend
-npm run lint
-npm run format
-```
-
-## 🚀 Déploiement
-
-### Docker (Recommandé)
-```bash
-# Build et démarrage
-docker-compose up -d
-
-# Logs
-docker-compose logs -f
-```
-
-### Production
-1. **Backend** : Déployer sur serveur avec GPU (AWS EC2 p3, Google Cloud GPU)
-2. **Frontend** : Build static + CDN (Netlify, Vercel)
-3. **Base de données** : PostgreSQL managée (AWS RDS, Google Cloud SQL)
-4. **Stockage** : S3 ou Google Cloud Storage pour les images
-
-## 📈 Monitoring
-
-### Métriques importantes
-- **Temps de génération IA** (objectif < 2min)
-- **Taux de succès** des simulations  
-- **Usage GPU** et mémoire
-- **Temps de réponse API**
-
-### Outils recommandés
-- **Prometheus** + **Grafana** : Métriques
-- **Sentry** : Monitoring des erreurs
-- **ELK Stack** : Logs centralisés
-
-## 🤝 Contribution
-
-### Standards de code
-- **Python** : PEP 8, type hints, docstrings
-- **TypeScript** : ESLint, Prettier, interfaces strictes
-- **Git** : Conventional commits
-- **Documentation** : Markdown, JSDoc
-
-### Workflow
-1. Fork le repository
-2. Créer une branche feature
-3. Tests + linting
-4. Pull request avec description détaillée
-
-## 📄 Licence
-
 **Usage professionnel uniquement**. Conforme aux réglementations médicales européennes et RGPD.
 
 ## 🆘 Support
 
-- **Documentation** : `/docs`
-- **Issues** : GitHub Issues
-- **Email** : support@aestheticai.com
+- 📖 **Documentation** : `/docs` et [Docker Setup](DOCKER.md)
+- � **Issues** : GitHub Issues
+- 📧 **Email** : support@aestheticai.com
 
 ---
 

@@ -1,0 +1,133 @@
+version: '3.8'
+
+services:
+  # ==================== DATABASE ====================
+  postgres:
+    image: postgres:15-alpine
+    container_name: aesthetic_postgres
+    environment:
+      POSTGRES_DB: aesthetic_db
+      POSTGRES_USER: aesthetic_user
+      POSTGRES_PASSWORD: aesthetic_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aesthetic_user -d aesthetic_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - aesthetic_network
+
+  # ==================== BACKEND ====================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aesthetic_backend
+    environment:
+      - DATABASE_URL=postgresql://aesthetic_user:aesthetic_password@postgres:5432/aesthetic_db
+      - SECRET_KEY=your-super-secret-key-for-production
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - USE_GPU=false
+      - UPLOAD_DIR=/app/uploads
+      - MODELS_DIR=/app/models
+      - OPENCV_IO_ENABLE_OPENEXR=1
+      - QT_QPA_PLATFORM=offscreen
+    volumes:
+      - backend_uploads:/app/uploads
+      - backend_models:/app/models
+      - ./backend/logs:/app/logs
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - aesthetic_network
+
+  # ==================== FRONTEND ====================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - REACT_APP_API_URL=http://localhost:8000
+    container_name: aesthetic_frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - aesthetic_network
+
+  # ==================== REVERSE PROXY (NGINX) ====================
+  nginx:
+    image: nginx:alpine
+    container_name: aesthetic_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+    networks:
+      - aesthetic_network
+
+  # ==================== REDIS (CACHE) ====================
+  redis:
+    image: redis:7-alpine
+    container_name: aesthetic_redis
+    command: redis-server --appendonly yes --requirepass redis_password
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - aesthetic_network
+
+volumes:
+  postgres_data:
+    driver: local
+  backend_uploads:
+    driver: local
+  backend_models:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  aesthetic_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

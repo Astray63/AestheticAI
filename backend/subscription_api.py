@@ -1,21 +1,39 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
 import stripe
 import os
 
-from database import get_db
+from database import get_db, User
 from subscription_models import (
-    User, Subscription, Payment, UsageStats, 
+    Subscription, Payment, UsageStats, 
     SubscriptionTier, PaymentStatus,
     get_subscription_limits, check_usage_limits
 )
-from auth import get_current_user
+from auth import verify_token
 from schemas import *
 
 # Configuration Stripe
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "sk_test_votre_cle_stripe")
+
+# Sécurité
+security = HTTPBearer()
+
+def get_current_user_from_credentials(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+) -> User:
+    """Helper pour obtenir l'utilisateur actuel depuis le token"""
+    payload = verify_token(credentials.credentials)
+    username = payload.get("sub")
+    if username is None:
+        raise HTTPException(status_code=401, detail="Token invalide")
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Utilisateur non trouvé")
+    return current_user
 
 router = APIRouter(prefix="/subscription", tags=["subscription"])
 
@@ -41,22 +59,38 @@ async def get_subscription_plans():
 
 @router.get("/current", response_model=Dict[str, Any])
 async def get_current_subscription(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_from_credentials),
     db: Session = Depends(get_db)
 ):
     """Obtenir l'abonnement actuel de l'utilisateur"""
-    if not current_user.subscription:
-        # Créer un abonnement freemium par défaut
-        subscription = Subscription(
-            user_id=current_user.id,
-            tier=SubscriptionTier.FREEMIUM,
-            end_date=datetime.utcnow() + timedelta(days=365)  # 1 an gratuit
-        )
-        db.add(subscription)
-        db.commit()
-        db.refresh(subscription)
-    else:
-        subscription = current_user.subscription
+    # Pour l'instant, retourner un abonnement freemium par défaut
+    # sans utiliser la base de données (la table subscriptions n'existe pas encore)
+    
+    limits = get_subscription_limits(SubscriptionTier.FREEMIUM)
+    
+    return {
+        "id": 1,
+        "tier": "freemium",
+        "status": "active",
+        "start_date": (datetime.utcnow() - timedelta(days=1)).isoformat(),
+        "end_date": (datetime.utcnow() + timedelta(days=365)).isoformat(),
+        "auto_renew": False,
+        "limits": {
+            "simulations_per_month": limits["monthly_simulations"],
+            "storage_gb": limits["storage_mb"] / 1024,
+            "api_calls_per_day": 1000,  # Valeur par défaut
+            "max_patients": 50,  # Valeur par défaut
+            "advanced_ai": limits["advanced_ai"],
+            "priority_support": limits["priority_support"],
+            "white_label": limits["white_label"]
+        },
+        "usage": {
+            "simulations_used": 0,
+            "storage_used_gb": 0,
+            "api_calls_today": 0,
+            "patients_count": 0
+        }
+    }
     
     # Obtenir les statistiques d'utilisation
     current_month = datetime.utcnow().month
@@ -101,7 +135,7 @@ async def get_current_subscription(
 @router.post("/upgrade")
 async def create_upgrade_session(
     plan_data: Dict[str, str],
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_from_credentials),
     db: Session = Depends(get_db)
 ):
     """Créer une session de paiement Stripe pour upgrade"""
@@ -189,7 +223,7 @@ async def stripe_webhook(
 
 @router.get("/usage", response_model=Dict[str, Any])
 async def get_usage_statistics(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_from_credentials),
     db: Session = Depends(get_db)
 ):
     """Obtenir les statistiques d'utilisation détaillées"""
@@ -215,14 +249,15 @@ async def get_usage_statistics(
 
 @router.post("/cancel")
 async def cancel_subscription(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_from_credentials),
     db: Session = Depends(get_db)
 ):
     """Annuler l'abonnement (reste actif jusqu'à la fin de la période)"""
-    if not current_user.subscription:
-        raise HTTPException(status_code=404, detail="Aucun abonnement actif")
+    # Chercher l'abonnement directement
+    subscription = db.query(Subscription).filter(Subscription.user_id == current_user.id).first()
     
-    subscription = current_user.subscription
+    if not subscription:
+        raise HTTPException(status_code=404, detail="Aucun abonnement actif")
     
     # Annuler l'auto-renouvellement
     subscription.auto_renew = False
